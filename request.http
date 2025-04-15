@@ -1,0 +1,10 @@
+post http://127.0.0.1:8000/get-response
+Content-Type: application/json
+
+{
+    "query": "List out the company salaries that are companies provided"
+}
+
+
+###
+get http://127.0.0.1:8000
