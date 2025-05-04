@@ -32,33 +32,56 @@ def get_Related_Context(query):
     # print("context",context)
     return context
 
-# print(get_Related_Context("which companies are visited for placements to VNR"))
-# def get_gemini_response(query):
-#     """Retrieve results from FAISS index and generate a response using Gemini AI."""
-#     # Retrieve relevant documents from FAISS
-#     relevant_docs = retriever.invoke(query)
-    
-#     # Combine retrieved texts
-#     context = "\n".join([doc.page_content for doc in relevant_docs])
 
-#     # Prepare prompt
-#     prompt = f"""
-#     You are an AI assistant. Use the following context to answer the query accurately.
-    
-#     Context:
-#     {context}
-    
-#     Query:
-#     {query}
-#     """
+def get_gemini_response(query):
+    """Retrieve results from FAISS index and generate a concise response using Gemini AI."""
 
-#     # Use Gemini AI to generate response
-#     model = genai.GenerativeModel("models/gemini-2.0-flash-exp")
-#     response = model.generate_content(prompt)
-    
-#     return response.text
+    faiss_index_path = "faiss_index_"
 
-# # Example usage
-# query = "List out the comapnies that are visited VNR for placements which give internship stipend greater than 50000"
-# response = get_gemini_response(query)
-# print(response)
+    embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name, cache_folder=CACHE_DIR)
+
+
+    vectorstore = FAISS.load_local(faiss_index_path, embeddings, allow_dangerous_deserialization=True)
+    retriever = vectorstore.as_retriever()
+    relevant_docs = retriever.invoke(query)
+
+    if not relevant_docs:
+        return "I'm sorry, I couldn't find any relevant information for your query. Could you please provide more details?"
+
+
+    context = "\n".join([doc.page_content for doc in relevant_docs])
+
+    
+    vague_keywords = ["tell me about", "explain", "details", "information"]
+    is_vague = any(keyword in query.lower() for keyword in vague_keywords)
+
+
+    if is_vague:
+        prompt = f"""
+        You are an AI assistant. Use the following context to provide a brief and general response to the query.
+        Avoid going into too much detail or showing the entire content directly.
+
+        Context:
+        {context}
+
+        Query:
+        {query}
+        """
+    else:
+        prompt = f"""
+        You are an AI assistant. Use the following context to answer the query accurately and concisely.
+        Avoid showing the entire content directly.
+
+        Context:
+        {context}
+
+        Query:
+        {query}
+        """
+
+    # Use Gemini AI to generate response
+    model = genai.GenerativeModel("models/gemini-2.0-flash-exp")
+    response = model.generate_content(prompt)
+
+    # Return concise response
+    return response.text.strip()
